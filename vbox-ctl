@@ -14,6 +14,10 @@ function print_help {
     echo "  -S      Start in a VirtualBox console."
     echo "  -o      Power off."
     echo "  -r      Restart."
+    echo "  -d      Delete VM"
+    echo "  -D      Purge VM"
+    echo "Interactive:"
+    echo "  -n      Create new VM from ISO"
 }
 
 if ! which VBoxManage > /dev/null; then
@@ -27,19 +31,19 @@ function list {
     while read line; do
         output="$output  $line\n"
     done < <(VBoxManage list vms)
-
+    
     if [ -n "$output" ]; then
         echo "Available:"
         echo -n -e "$output"
     else
         echo "No available virtual machines!"
     fi
-
+    
     output=''
     while read line; do
         output="$output  $line\n"
     done < <(VBoxManage list runningvms)
-
+    
     if [ -n "$output" ]; then
         echo "Running:"
         echo -n -e "$output"
@@ -64,9 +68,141 @@ function reset {
     exec VBoxManage controlvm "$VMNAME" reset
 }
 
+function new_vm {
+    # name
+    read -p "Name your VM : " vm_name
+    VMNAME="$vm_name"
+    # os
+    read -p "OS type : " os_type
+    #
+    read -p "Memory in MB [default:1024]: " memory
+    memory=${memory:-1024}
+    # directory
+    read -p "Base directory [default :$HOME/VMs]: " folder
+    folder=${folder:-$HOME/VMs}
+    folder="${folder//\~/"$HOME"}"
+    # storage
+    read -p "Storage size in MB [default:80000]: " storage
+    storage=${storage:-8000}
+    # iso
+    read -p "Path to ISO file: " iso
+    iso="${iso//\~/"$HOME"}"
+    
+    # helpers
+    vm_dir=$folder/$vm_name
+    diskpath=$folder/$vm_name/"$vm_name"_DISK.vdi
+    
+    ####################
+    
+    echo "Creating Your VM....."
+    echo
+    # create the vm
+    VBoxManage createvm --name $vm_name --ostype $os_type --register --basefolder $folder
+    
+    if [[ $? -ne 0 ]]; then
+        echo
+        echo Cant create VM
+        VBoxManage unregistervm --delete $vm_name &>/dev/null
+        rm -rf $vm_dir
+        exit 1
+    fi
+    
+    # set memory and network
+    VBoxManage modifyvm $vm_name --ioapic on
+    VBoxManage modifyvm $vm_name --nic1 nat
+    VBoxManage modifyvm $vm_name --memory 1024 --vram 128
+    if [[$? -ne 0 ]]; then
+        VBoxManage unregistervm --delete $vm_name &>/dev/null
+        rm -rf $vm_dir
+        exit 1
+    fi
+    
+    # make vdi image
+    VBoxManage createhd --filename $diskpath --size $storage --format VDI
+    
+    if [[ $? -ne 0 ]];then
+        echo
+        echo Cant create VDI
+        VBoxManage unregistervm --delete $vm_name &>/dev/null
+        rm -rf $vm_dir
+        exit 1
+    fi
+    # connect vdi to sata controller
+    VBoxManage storagectl $vm_name --name "SATA Controller" --add sata --controller IntelAhci
+    VBoxManage storageattach "$vm_name" --storagectl "SATA Controller"\
+    --port 0 --device 0 --type hdd --medium $diskpath
+    
+    if [[ $? -ne 0 ]]; then
+        echo
+        echo There is a problem with your VDI
+        VBoxManage unregistervm --delete $vm_name &>/dev/null
+        rm -rf $vm_dir
+        exit 1
+    fi
+    
+    
+    # connect the iso
+    VBoxManage storagectl $vm_name --name "IDE Controller" --add ide --controller PIIX4
+    VBoxManage storageattach "$vm_name" --storagectl "IDE Controller" --port 1 --device 0 --type dvddrive --medium $iso
+    
+    if [[ $? -ne 0 ]]; then
+        echo
+        echo There is a problem with your ISO file
+        VBoxManage unregistervm --delete $vm_name &>/dev/null
+        rm -rf $vm_dir
+        exit 1
+    fi
+    
+    ###
+    VBoxManage modifyvm "$vm_name" --boot1 dvd --boot2 disk --boot3 none --boot4 none
+    
+    echo
+    echo +++++ VM successfully created +++++
+    echo
+    
+    read -p "Do you want to start the VM now? [Y/n]" -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Nn]$ ]]
+    then
+        #do nothing
+        echo
+    else
+        start_console
+    fi
+}
+
+function delete {
+    read -p "Are you sure? [y/N]" -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        echo deleting $VMNAME
+        exec VBoxManage unregistervm --delete $VMNAME
+    else
+        #do nothing
+        echo
+    fi
+}
+
+function purge {
+    
+    read -p "Are you sure? [y/N]" -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+        echo purging $VMNAME
+        rm -rf $vm_dir
+        exec VBoxManage unregistervm --delete $VMNAME
+    else
+        #do nothing
+        echo
+    fi
+    
+}
+
 VMNAME="${!#}"
 
-while getopts "hlsSor" option; do
+while getopts "hlsSorndD" option; do
     case $option in
         l) list; exit 0;;
         s) start;;
@@ -74,6 +210,9 @@ while getopts "hlsSor" option; do
         o) poweroff;;
         r) reset;;
         h) print_help; exit 0;;
+        n) new_vm;exit 0;;
+        d) delete;;
+        D) purge;;
         \?) print_help; exit 0;;
     esac
 done

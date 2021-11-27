@@ -1,5 +1,22 @@
 
-VBoxManage wrapper by https://github.com/lamberta now with installer
+User-friendly VBoxManage wrapper based on https://gist.github.com/lamberta/3270486
 
 install with:
 $ sudo make install
+uninstall with:
+$ sudo make uninstall
+
+
+Usage: vbox-ctl [options] name
+    Easy control of VirtualBox virtual machines.
+       -h      Show this usage guide.
+       -l      List available VM names.
+    Commands:
+       -s      Start in headless mode.
+       -S      Start in a VirtualBox console.
+       -o      Power off.
+       -r      Restart.
+       -d      Delete VM.
+       -D      Purge VM.
+    Interactive:
+       -n      Create new VM from ISO file.
