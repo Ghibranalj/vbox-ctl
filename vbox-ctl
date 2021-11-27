@@ -78,14 +78,14 @@ function new_vm {
     read -p "Memory in MB [default:1024]: " memory
     memory=${memory:-1024}
     # directory
-    read -p "Base directory [default :$HOME/VMs]: " folder
+    read -e -p "Base directory [default :$HOME/VMs]: " folder
     folder=${folder:-$HOME/VMs}
     folder="${folder//\~/"$HOME"}"
     # storage
-    read -p "Storage size in MB [default:80000]: " storage
+    read -p "Storage size in MiB [default: 80000]: " storage
     storage=${storage:-8000}
     # iso
-    read -p "Path to ISO file: " iso
+    read -e -p "Path to ISO file: " iso
     iso="${iso//\~/"$HOME"}"
     
     # helpers
