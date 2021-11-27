@@ -1,0 +1,5 @@
+
+VBoxManage wrapper by https://github.com/lamberta now with installer
+
+install with:
+$ sudo make install

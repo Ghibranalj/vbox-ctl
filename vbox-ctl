@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Convenience wrapper around VBoxManage for controlling VirtualBox virtual machines.
+#
+# Headless Ubuntu server gets stuck at boot menu on unsuccessful boots:
+# http://serverfault.com/questions/243343/headless-ubuntu-server-machine-sometimes-stuck-at-grub-menu
+
+function print_help {
+    echo "Usage: $(basename $0) [options] name"
+    echo "Easy control of VirtualBox virtual machines."
+    echo "  -h      Show this usage guide."
+    echo "  -l      List available VM names."
+    echo "Commands:"
+    echo "  -s      Start in headless mode."
+    echo "  -S      Start in a VirtualBox console."
+    echo "  -o      Power off."
+    echo "  -r      Restart."
+}
+
+if ! which VBoxManage > /dev/null; then
+    echo "Error: Requires VBoxManage"
+    exit 1
+fi
+
+function list {
+    local output=''
+    
+    while read line; do
+        output="$output  $line\n"
+    done < <(VBoxManage list vms)
+
+    if [ -n "$output" ]; then
+        echo "Available:"
+        echo -n -e "$output"
+    else
+        echo "No available virtual machines!"
+    fi
+
+    output=''
+    while read line; do
+        output="$output  $line\n"
+    done < <(VBoxManage list runningvms)
+
+    if [ -n "$output" ]; then
+        echo "Running:"
+        echo -n -e "$output"
+    fi
+}
+
+function start {
+    exec VBoxManage startvm "$VMNAME" --type headless
+}
+
+function start_console {
+    exec VBoxManage startvm "$VMNAME"
+}
+
+function poweroff {
+    echo "Powering off $VMNAME VM"
+    exec VBoxManage controlvm "$VMNAME" poweroff
+}
+
+function reset {
+    echo "Restarting $VMNAME VM"
+    exec VBoxManage controlvm "$VMNAME" reset
+}
+
+VMNAME="${!#}"
+
+while getopts "hlsSor" option; do
+    case $option in
+        l) list; exit 0;;
+        s) start;;
+        S) start_console;;
+        o) poweroff;;
+        r) reset;;
+        h) print_help; exit 0;;
+        \?) print_help; exit 0;;
+    esac
+done
+
+print_help
