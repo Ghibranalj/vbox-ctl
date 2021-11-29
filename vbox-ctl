@@ -75,6 +75,9 @@ function new_vm {
     # os
     read -p "OS type : " os_type
     #
+    read -p "Number of cores [default:1]:" cpu
+    cpu=${cpu:-1}
+    #
     read -p "Memory in MB [default:1024]: " memory
     memory=${memory:-1024}
     # directory
@@ -110,6 +113,7 @@ function new_vm {
     # set memory and network
     VBoxManage modifyvm $vm_name --ioapic on
     VBoxManage modifyvm $vm_name --nic1 nat
+    VBoxManage modifyvm --cpu $cpu
     VBoxManage modifyvm $vm_name --memory 1024 --vram 128
     if [[$? -ne 0 ]]; then
         VBoxManage unregistervm --delete $vm_name &>/dev/null
@@ -200,9 +204,13 @@ function purge {
     
 }
 
+function port_forward {
+    echo $VMNAME
+}
+
 VMNAME="${!#}"
 
-while getopts "hlsSorndD" option; do
+while getopts "hlsSorndDp" option; do
     case $option in
         l) list; exit 0;;
         s) start;;
@@ -213,6 +221,7 @@ while getopts "hlsSorndD" option; do
         n) new_vm;exit 0;;
         d) delete;;
         D) purge;;
+        p) port_forward;exit 0;;
         \?) print_help; exit 0;;
     esac
 done
