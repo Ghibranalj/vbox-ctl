@@ -111,10 +111,7 @@ function new_vm {
     fi
     
     # set memory and network
-    VBoxManage modifyvm $vm_name --ioapic on
-    VBoxManage modifyvm $vm_name --nic1 nat
-    VBoxManage modifyvm --cpu $cpu
-    VBoxManage modifyvm $vm_name --memory 1024 --vram 128
+    VBoxManage modifyvm $vm_name --ioapic on --nic1 nat --cpus $cpu --memory $memory --vram 128
     if [[$? -ne 0 ]]; then
         VBoxManage unregistervm --delete $vm_name &>/dev/null
         rm -rf $vm_dir
